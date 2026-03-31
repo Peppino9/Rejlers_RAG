@@ -1,0 +1,113 @@
+# Rejlers RAG V2 - Walkthrough
+
+This file gives a quick walkthrough of how the app works end-to-end.
+
+## 1) High-level purpose
+
+The project is a Streamlit-based RAG system that:
+- indexes project documents (PDFs + scraped StoryMaps sections),
+- retrieves relevant chunks for a user query,
+- generates an answer in Swedish (expert/citizen mode),
+- shows sources and evaluation metrics.
+
+## 2) Architecture Diagram
+
+```mermaid
+flowchart TD
+    U[User in Streamlit UI] --> Q[Question + mode]
+    Q --> RAG[src/pipeline.py run_rag]
+
+    subgraph Storage_and_Ingestion
+        PDF[data/**/*.pdf]
+        SM[data/sweco_storymaps_*_item_*/sections.md]
+        ING[src/ingest.py run_ingestion]
+        EMB[OpenAI Embeddings text-embedding-3-small]
+        CH[(ChromaDB /chroma_db<br/>collection: rejlers_documents)]
+        PDF --> ING
+        SM --> ING
+        ING --> EMB
+        EMB --> CH
+    end
+
+    RAG --> RET[Retriever queries Chroma]
+    CH --> RET
+    RET --> CTX[Top-K chunks + metadata]
+    CTX --> GEN[OpenAI generation gpt-4o-mini]
+    GEN --> ANS[Answer + Sources]
+    ANS --> UI[Rendered in app.py]
+
+    UI --> MET[src/evaluate.py<br/>LIX + Ragas metrics]
+```
+
+## 2.1) Runtime Sequence Visualization
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant UI as app.py (Streamlit)
+    participant Pipe as src/pipeline.py
+    participant Chroma as ChromaDB
+    participant OpenAI as OpenAI API
+    participant Eval as src/evaluate.py
+
+    User->>UI: Ask question + choose mode
+    UI->>Pipe: run_rag(query, mode)
+    Pipe->>Chroma: retrieve top_k chunks
+    Chroma-->>Pipe: chunks + metadata
+    Pipe->>OpenAI: generate answer from retrieved context
+    OpenAI-->>Pipe: answer text
+    Pipe-->>UI: answer + sources + chunks
+    UI->>Eval: LIX + Ragas metrics
+    Eval-->>UI: scores
+    UI-->>User: answer + sources + metrics (+ optional images)
+```
+
+## 2.2) Ingestion Pipeline Visualization
+
+```mermaid
+flowchart LR
+    A[data/**/*.pdf] --> P[Docling parser]
+    B[data/sweco_storymaps_*_item_*/sections.md] --> S[StoryMaps reader]
+    P --> C[Recursive chunking]
+    S --> C
+    C --> E[Batch embeddings]
+    E --> U[Chroma upsert in batches]
+    U --> D[(rejlers_documents collection)]
+```
+
+## 3) Main files and roles
+
+- `app.py`
+  - Streamlit UI.
+  - Shows chunk count in DB, lets you index/remove docs, asks questions, and renders answer + sources + metrics.
+
+- `config.py`
+  - Central config: API key loading, models, DB/data paths, retrieval parameters (like `TOP_K`).
+
+- `src/ingest.py`
+  - Full ingestion pipeline.
+  - Parses PDFs with Docling, chunks text, embeds chunks, writes to Chroma.
+  - Also ingests scraped StoryMaps markdown (`sections.md`) into the same collection.
+
+- `src/pipeline.py`
+  - RAG runtime: retrieve relevant chunks, build prompt, generate answer, return sources/chunks.
+
+- `src/evaluate.py`
+  - Computes readability (`LIX`) and Ragas-style quality metrics.
+
+## 4) Data flow (step-by-step)
+
+1. Ingestion reads files from `data/`.
+2. Text is chunked and embedded with OpenAI embeddings.
+3. Chunks + metadata are stored in Chroma.
+4. User asks a question in the UI.
+5. Retriever fetches top chunks from Chroma.
+6. Generator produces answer from retrieved context.
+7. UI shows answer, sources, and metrics.
+
+## 5) Notes about source coverage
+
+- PDFs and scraped StoryMaps sections are designed to be indexed into the same Chroma collection.
+- If ingestion crashes before completion, chunk count can remain `0` and retrieval will not work as expected.
+- A successful run should end with logs indicating chunks were stored in Chroma.
+

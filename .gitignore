@@ -1,0 +1,31 @@
+# Secrets
+.env
+
+# Virtual environments
+.venv/
+.venv_playwright/
+
+# Playwright browsers
+.playwright-browsers/
+
+# Raw data files (too large for GitHub)
+data/
+
+# ChromaDB (uploaded separately to Railway volume)
+chroma_db/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# OS
+.DS_Store
+Thumbs.db

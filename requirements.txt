@@ -1,0 +1,25 @@
+# Rejlers Multi-Document RAG PoC — Bachelor's Thesis
+# Python 3.10+
+
+# Orchestration & parsing
+datapizza-ai>=0.0.2
+datapizza-ai-parsers-docling>=0.0.2
+
+# Vector DB & embeddings
+chromadb>=0.4.0,<1.0.0
+openai>=1.0.0
+
+# LLM & evaluation
+ragas>=0.1.0
+datasets>=2.14.0
+langchain-openai>=0.2.0
+
+# Frontend & env
+streamlit>=1.28.0
+python-dotenv>=1.0.0
+
+# Utilities
+tqdm>=4.65.0
+
+# OCR fallback for StoryMaps (text rendered as images)
+easyocr>=1.7.1
