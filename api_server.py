@@ -1,0 +1,88 @@
+"""
+FastAPI backend for the React frontend.
+
+Run:
+  uvicorn api_server:app --reload --port 8000
+"""
+
+from __future__ import annotations
+
+from typing import Literal
+
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+
+from src.evaluate import lix_score, ragas_evaluate
+from src.pipeline import run_rag
+
+
+class AskRequest(BaseModel):
+    question: str = Field(min_length=1)
+    mode: Literal["expert", "citizen"] = "citizen"
+
+
+class AskResponse(BaseModel):
+    answer: str
+    sources: str
+    metrics: dict[str, float | None]
+
+
+app = FastAPI(title="Rejlers RAG API", version="1.0.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
+        "http://localhost:5180",
+        "http://127.0.0.1:5180",
+    ],
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok"}
+
+
+@app.post("/api/ask", response_model=AskResponse)
+def ask(payload: AskRequest) -> AskResponse:
+    question = payload.question.strip()
+    if not question:
+        raise HTTPException(status_code=400, detail="Question cannot be empty.")
+
+    try:
+        out = run_rag(question, mode=payload.mode)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"RAG pipeline failed: {exc}") from exc
+
+    answer = (out.get("answer") or "").strip() or "No answer returned."
+    sources = out.get("sources") or ""
+    chunks = out.get("chunks") or []
+    chunk_texts = [c.get("text", "") for c in chunks if isinstance(c, dict) and c.get("text")]
+
+    metrics: dict[str, float | None] = {
+        "lix": float(lix_score(answer)),
+        "faithfulness": None,
+        "answer_relevancy": None,
+    }
+    try:
+        ragas = ragas_evaluate(question, answer, chunk_texts)
+        faithfulness = ragas.get("faithfulness")
+        answer_relevancy = ragas.get("answer_relevancy")
+        metrics["faithfulness"] = float(faithfulness) if faithfulness is not None else None
+        metrics["answer_relevancy"] = (
+            float(answer_relevancy) if answer_relevancy is not None else None
+        )
+    except Exception:
+        # If Ragas models fail to load or timeout, still return answer + LIX.
+        pass
+
+    return AskResponse(answer=answer, sources=sources, metrics=metrics)

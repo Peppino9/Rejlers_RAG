@@ -17,6 +17,8 @@ langchain-openai>=0.2.0
 # Frontend & env
 streamlit>=1.28.0
 python-dotenv>=1.0.0
+fastapi>=0.115.0
+uvicorn>=0.30.0
 
 # Utilities
 tqdm>=4.65.0
