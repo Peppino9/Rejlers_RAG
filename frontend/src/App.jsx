@@ -13,6 +13,7 @@ function metricLabel(key) {
 
 function App() {
   const sceneRef = useRef(null)
+  const textareaRef = useRef(null)
   const scenePointerRef = useRef({ x: 50, y: 50 })
   const sceneFrameRef = useRef(null)
   const [query, setQuery] = useState('')
@@ -28,6 +29,7 @@ function App() {
   })
 
   const hasHistory = history.length > 0
+  const hasResponse = Boolean(active.question || active.timestamp)
   const metrics = active.metrics ?? {}
   const hasMetrics = Object.keys(metrics).length > 0
 
@@ -46,6 +48,12 @@ function App() {
       if (sceneFrameRef.current) cancelAnimationFrame(sceneFrameRef.current)
     }
   }, [])
+
+  useEffect(() => {
+    if (!textareaRef.current) return
+    textareaRef.current.style.height = 'auto'
+    textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 130)}px`
+  }, [query])
 
   function updateScenePosition() {
     if (!sceneRef.current) return
@@ -113,20 +121,26 @@ function App() {
     <div className="scene" ref={sceneRef} onMouseMove={handleSceneMouseMove} onMouseLeave={handleSceneMouseLeave}>
       <header className="topbar">
         <span className="brand-mark">ALMA</span>
-        <nav>
-          <button className="nav-link shimmer-hover" type="button" onClick={() => setHistory([])}>
-            Rensa historik
+        <div className="help-popover">
+          <button className="help-trigger" type="button" aria-label="Vad kan jag använda ALMA till?">
+            ?
           </button>
-        </nav>
+          <div className="help-content" role="note">
+            Använd ALMA för att ställa frågor om projektunderlag, få sammanfattningar och hitta relevanta källor snabbt.
+          </div>
+        </div>
       </header>
 
       <section className="hero">
         <p className="eyebrow">ALMA Assistent</p>
-        <h1>Välkommen till ALMA.</h1>
+        <h1>
+          Välkommen till <span className="brand-inline">ALMA</span>.
+        </h1>
         <p className="subhead">Modern intelligens för infrastrukturplanering och underbyggda beslut.</p>
       </section>
 
       <section className="horizon-console">
+        <p className="section-title">Ställ en fråga</p>
         <div className="glass-input">
           <div className="project-picker">
             <label className="project-label" htmlFor="projectSelect">
@@ -139,9 +153,14 @@ function App() {
             </select>
           </div>
           <textarea
+            ref={textareaRef}
             id="promptInput"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
+            onInput={(event) => {
+              event.currentTarget.style.height = 'auto'
+              event.currentTarget.style.height = `${Math.min(event.currentTarget.scrollHeight, 130)}px`
+            }}
             onKeyDown={(event) => {
               if (event.key === 'Enter' && !event.shiftKey) {
                 event.preventDefault()
@@ -164,37 +183,49 @@ function App() {
             disabled={loading}
             type="button"
           >
-            {loading ? '...' : 'Skicka'}
+            {loading ? <span className="send-loading" aria-label="Laddar svar" /> : 'Skicka'}
           </button>
+          <div className={`answer-panel ${hasResponse ? 'visible' : ''}`}>
+            <article className="response-card">
+              <h2 className="response-title">ALMA-svar</h2>
+              {hasResponse ? (
+                <>
+                  <p className="response-copy unfurl">
+                    {active.answer.split(' ').map((word, index) => (
+                      <span key={`${word}-${index}`} style={{ animationDelay: `${index * 22}ms` }}>
+                        {word}&nbsp;
+                      </span>
+                    ))}
+                  </p>
+                  <div className="citations">
+                    {active.sources
+                      ? active.sources.split(',').map((item) => (
+                          <button key={item.trim()} className="citation shimmer-hover" type="button">
+                            <span className="diamond" aria-hidden="true" />
+                            {item.trim()}
+                          </button>
+                        ))
+                      : null}
+                    {metricPills}
+                    <span className="citation">Saved {active.timestamp ?? '--'}</span>
+                    {hasMetrics ? <span className="citation verified">Verifierad data</span> : null}
+                  </div>
+                </>
+              ) : (
+                <p className="response-placeholder">Svar visas här när du skickar en fråga.</p>
+              )}
+            </article>
+          </div>
         </div>
       </section>
 
-      <section className="response-zone">
-        <p className="section-title">Ställ en fråga</p>
-        <article className="response-card">
-          <h2 className="response-title">ALMA-svar</h2>
-          <p className="response-copy unfurl">
-            {active.answer.split(' ').map((word, index) => (
-              <span key={`${word}-${index}`} style={{ animationDelay: `${index * 22}ms` }}>
-                {word}&nbsp;
-              </span>
-            ))}
-          </p>
-
-          <div className="citations">
-            {active.sources
-              ? active.sources.split(',').map((item) => (
-                  <button key={item.trim()} className="citation shimmer-hover" type="button">
-                    <span className="diamond" aria-hidden="true" />
-                    {item.trim()}
-                  </button>
-                ))
-              : null}
-            {metricPills}
-            <span className="citation">Saved {active.timestamp ?? '--'}</span>
-            {hasMetrics ? <span className="citation verified">Verifierad data</span> : null}
-          </div>
-        </article>
+      <section className="history-section">
+        <div className="history-header">
+          <p className="history-title">Historik</p>
+          <button className="nav-link shimmer-hover" type="button" onClick={() => setHistory([])}>
+            Rensa historik
+          </button>
+        </div>
       </section>
 
       <section className="history-strip">
@@ -205,7 +236,9 @@ function App() {
             </button>
           ))
         ) : (
-          <span className="history-empty">Ingen tidigare fråga/svar ännu.</span>
+          <span className="history-empty">
+            <span aria-hidden="true">◇ </span>Inga tidigare frågor ännu.
+          </span>
         )}
       </section>
     </div>
