@@ -35,6 +35,6 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 
 COPY . .
 
-EXPOSE 8501
+EXPOSE 8000
 
-CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0", "--server.headless=true"]
+CMD ["sh", "-c", "uvicorn api_server:app --host 0.0.0.0 --port ${PORT:-8000}"]

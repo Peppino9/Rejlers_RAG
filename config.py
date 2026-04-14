@@ -32,7 +32,7 @@ OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
 LLM_MODEL: str = "gpt-4o-mini"
 
 # ── ChromaDB ─────────────────────────────────────────────────────────────────
-# Always under project root (not cwd-relative) so `streamlit run app.py` sees the same DB
+# Always under project root (not cwd-relative) so API/runtime sees the same DB
 # as `python -m src.ingest` when started from different directories.
 CHROMA_DB_PATH: str = str(_PROJECT_ROOT / "chroma_db")
 COLLECTION_NAME: str = "rejlers_documents"

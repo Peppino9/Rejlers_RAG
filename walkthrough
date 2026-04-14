@@ -4,7 +4,7 @@ This file gives a quick walkthrough of how the app works end-to-end.
 
 ## 1) High-level purpose
 
-The project is a Streamlit-based RAG system that:
+The project is a React + FastAPI RAG system that:
 - indexes project documents (PDFs + scraped StoryMaps sections),
 - retrieves relevant chunks for a user query,
 - generates an answer in Swedish (expert/citizen mode),
@@ -14,7 +14,7 @@ The project is a Streamlit-based RAG system that:
 
 ```mermaid
 flowchart TD
-    U[User in Streamlit UI] --> Q[Question + mode]
+    U[User in React UI] --> Q[Question + mode]
     Q --> RAG[src/pipeline.py run_rag]
 
     subgraph Storage_and_Ingestion
@@ -34,7 +34,7 @@ flowchart TD
     RET --> CTX[Top-K chunks + metadata]
     CTX --> GEN[OpenAI generation gpt-4o-mini]
     GEN --> ANS[Answer + Sources]
-    ANS --> UI[Rendered in app.py]
+    ANS --> UI[Rendered in frontend/src/App.jsx]
 
     UI --> MET[src/evaluate.py<br/>LIX + Ragas metrics]
 ```
@@ -44,7 +44,7 @@ flowchart TD
 ```mermaid
 sequenceDiagram
     participant User
-    participant UI as app.py (Streamlit)
+    participant UI as frontend (React)
     participant Pipe as src/pipeline.py
     participant Chroma as ChromaDB
     participant OpenAI as OpenAI API
@@ -77,9 +77,13 @@ flowchart LR
 
 ## 3) Main files and roles
 
-- `app.py`
-  - Streamlit UI.
-  - Shows chunk count in DB, lets you index/remove docs, asks questions, and renders answer + sources + metrics.
+- `frontend/src/App.jsx`
+  - React UI.
+  - Sends questions to the API and renders answer + sources + metrics.
+
+- `api_server.py`
+  - FastAPI backend.
+  - Exposes `/health` and `/api/ask` for the frontend.
 
 - `config.py`
   - Central config: API key loading, models, DB/data paths, retrieval parameters (like `TOP_K`).

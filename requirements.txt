@@ -14,8 +14,7 @@ ragas>=0.1.0
 datasets>=2.14.0
 langchain-openai>=0.2.0
 
-# Frontend & env
-streamlit>=1.28.0
+# Env & API
 python-dotenv>=1.0.0
 fastapi>=0.115.0
 uvicorn>=0.30.0

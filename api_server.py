@@ -7,6 +7,7 @@ Run:
 
 from __future__ import annotations
 
+import os
 from typing import Literal
 
 from fastapi import FastAPI, HTTPException
@@ -30,16 +31,22 @@ class AskResponse(BaseModel):
 
 app = FastAPI(title="Rejlers RAG API", version="1.0.0")
 
+_default_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
+    "http://localhost:5180",
+    "http://127.0.0.1:5180",
+]
+_env_origins = [
+    o.strip() for o in os.getenv("FRONTEND_ORIGIN", "").split(",") if o.strip()
+]
+_allow_origins = sorted(set(_default_origins + _env_origins))
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5174",
-        "http://localhost:5180",
-        "http://127.0.0.1:5180",
-    ],
+    allow_origins=_allow_origins,
     allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
     allow_credentials=True,
     allow_methods=["*"],
