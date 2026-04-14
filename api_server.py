@@ -14,9 +14,6 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from src.evaluate import lix_score, ragas_evaluate
-from src.pipeline import run_rag
-
 
 class AskRequest(BaseModel):
     question: str = Field(min_length=1)
@@ -61,6 +58,10 @@ def health() -> dict[str, str]:
 
 @app.post("/api/ask", response_model=AskResponse)
 def ask(payload: AskRequest) -> AskResponse:
+    # Import here so /health can respond while heavy deps load on first question.
+    from src.evaluate import lix_score, ragas_evaluate
+    from src.pipeline import run_rag
+
     question = payload.question.strip()
     if not question:
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
