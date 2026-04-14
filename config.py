@@ -23,6 +23,7 @@ if "DOCLING_DEVICE" not in os.environ:
 
 # ── API ─────────────────────────────────────────────────────
 OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+COHERE_API_KEY: str = os.getenv("COHERE_API_KEY", "")
 
 # ── Embeddings (strict: text-embedding-3-small) ─────────────────────────────
 OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
@@ -38,12 +39,26 @@ COLLECTION_NAME: str = "rejlers_documents"
 
 # ── Ingestion ───────────────────────────────────────────────────────────────
 DATA_DIR: str = str(_PROJECT_ROOT / "data")
-CHUNK_SIZE: int = 1500
+# Reduced from 1500 → 500 for tighter embeddings (each chunk covers one idea, not three).
+# NOTE: changing this requires re-running `python -m src.ingest` to rebuild the ChromaDB index.
+CHUNK_SIZE: int = 500
 
 # ── Retrieval ───────────────────────────────────────────────────────────────
 # Antal chunks att hämta (semantisk sökning). Högre = mer material till modellen,
 # men också mer brus och längre prompt.
 TOP_K: int = 10
+
+# ── Hybrid search (BM25 + vector RRF) ───────────────────────────────────────
+# USE_BM25: enable keyword search merged with vector search via Reciprocal Rank Fusion.
+# Catches exact technical terms (abbreviations, project codes) that dense embeddings miss.
+USE_BM25: bool = True
+
+# ── Reranker (Cohere cross-encoder) ─────────────────────────────────────────
+# USE_RERANKER: apply Cohere rerank-multilingual-v3.0 after retrieval.
+# Requires COHERE_API_KEY. Gracefully disabled if key is absent or cohere not installed.
+USE_RERANKER: bool = True
+# How many merged candidates to pass into the reranker before selecting top-k.
+RERANKER_CANDIDATES: int = 25
 
 # ── Generator: hur mycket chunk-text som får plats i prompten (tecken, ungefärligt) ──
 # Högre värden = mer av långa avsnitt (t.ex. buller) hinner med till modellen.
@@ -113,8 +128,13 @@ PROMPT_B_CITIZEN: str = (
 # Instruktioner som läggs i användarmeddelandet till generatorn (gemensamma grundregler).
 RAG_USER_INSTRUCTIONS: str = (
     "Grundregler:\n"
-    "- Svara endast utifrån underlaget ovan. Om något inte står där: säg att det inte kan besvaras "
-    "utifrån underlaget (inte hitta på).\n"
+    "- Svara på samma språk som frågan (svenska om frågan är på svenska, engelska om den är på engelska).\n"
+    "- Svara ENDAST utifrån underlaget ovan. Lägg inte till egna slutledningar, generaliseringar "
+    "eller uppgifter som inte finns i underlaget — gissa inte.\n"
+    "- Citera eller hänvisa till den specifika del av underlaget som stöder varje påstående "
+    "(t.ex. 'Enligt samrådshandlingen sid 12 …'). Ange alltid sidnummer.\n"
+    "- Om underlaget inte innehåller tillräcklig information för att besvara frågan: säg det klart "
+    "och tydligt — men bara för det som faktiskt saknas, inte för delar som underlaget täcker.\n"
     "- Om underlaget beskriver stråk/korridor (t.ex. var sträckningen går på bank, bro, tunnel, "
     "namn på orter och vattendrag): sammanfatta det som svar — säg inte att 'exakta lokaliseringar "
     "saknas' om dokumentet faktiskt beskriver sträckningen. Reservera 'saknas' för detaljer som "
