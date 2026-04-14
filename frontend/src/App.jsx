@@ -132,9 +132,9 @@ function App() {
       </header>
 
       <section className="hero">
-        <p className="eyebrow">ALMA Assistent</p>
+        <p className="eyebrow">AI Assistent</p>
         <h1>
-          Välkommen till <span className="brand-inline">ALMA</span>.
+          Du frågar, <span className="brand-inline">ALMA</span> svarar.
         </h1>
         <p className="subhead">Modern intelligens för infrastrukturplanering och underbyggda beslut.</p>
       </section>
@@ -152,24 +152,35 @@ function App() {
               <option value="vastlanken">Västlänken</option>
             </select>
           </div>
-          <textarea
-            ref={textareaRef}
-            id="promptInput"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            onInput={(event) => {
-              event.currentTarget.style.height = 'auto'
-              event.currentTarget.style.height = `${Math.min(event.currentTarget.scrollHeight, 130)}px`
-            }}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault()
-                askQuestion(query)
-              }
-            }}
-            placeholder="Ställ en fråga..."
-            rows={1}
-          />
+          <div className="prompt-input-wrap">
+            <textarea
+              ref={textareaRef}
+              id="promptInput"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              onInput={(event) => {
+                event.currentTarget.style.height = 'auto'
+                event.currentTarget.style.height = `${Math.min(event.currentTarget.scrollHeight, 130)}px`
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault()
+                  askQuestion(query)
+                }
+              }}
+              placeholder="Ask a question..."
+              rows={1}
+            />
+            <button
+              className="send-btn visible"
+              onClick={() => askQuestion(query)}
+              disabled={loading || !query.trim()}
+              type="button"
+              aria-label="Skicka fråga"
+            >
+              {loading ? <span className="send-loading" aria-label="Laddar svar" /> : <span aria-hidden="true">→</span>}
+            </button>
+          </div>
           <div className="prompt-actions">
             {starterPrompts.map((prompt) => (
               <button key={prompt} className="nav-link shimmer-hover" onClick={() => askQuestion(prompt)} type="button">
@@ -177,14 +188,6 @@ function App() {
               </button>
             ))}
           </div>
-          <button
-            className={`send-btn ${query.trim() ? 'visible' : ''}`}
-            onClick={() => askQuestion(query)}
-            disabled={loading}
-            type="button"
-          >
-            {loading ? <span className="send-loading" aria-label="Laddar svar" /> : 'Skicka'}
-          </button>
           <div className={`answer-panel ${hasResponse ? 'visible' : ''}`}>
             <article className="response-card">
               <h2 className="response-title">ALMA-svar</h2>
