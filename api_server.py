@@ -44,11 +44,24 @@ _allow_origins = sorted(set(_default_origins + _env_origins))
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_allow_origins,
-    allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
+    # Local dev + any Railway public HTTPS app (so the React site can call the API without CORS errors).
+    allow_origin_regex=(
+        r"https?://(localhost|127\.0\.0\.1)(:\d+)?"
+        r"|https://[a-zA-Z0-9-]+\.up\.railway\.app"
+    ),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/")
+def root() -> dict[str, str]:
+    return {
+        "service": "Rejlers RAG API",
+        "health": "/health",
+        "ask": "POST /api/ask",
+    }
 
 
 @app.get("/health")

@@ -95,7 +95,10 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: trimmed, mode: 'citizen', project }),
       })
-      if (!response.ok) throw new Error('Anrop till backend misslyckades.')
+      if (!response.ok) {
+        const detail = await response.text()
+        throw new Error(detail || `Backend svarade med ${response.status}`)
+      }
       const data = await response.json()
       const entry = {
         question: trimmed,
