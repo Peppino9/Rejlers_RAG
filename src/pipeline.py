@@ -35,6 +35,10 @@ from config import (
     PROMPT_MAX_CHUNKS,
     PROMPT_MAX_CONTEXT_CHARS,
     PROMPT_MAX_CHUNK_CHARS,
+    COHERE_API_KEY,
+    USE_RERANKER,
+    RERANKER_CANDIDATES,
+    USE_BM25,
 )
 
 
@@ -140,6 +144,134 @@ def _chunk_dedupe_key(text: str | None, meta: dict) -> tuple[str, str, int]:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# BM25 hybrid search
+# ─────────────────────────────────────────────────────────────────────────────
+
+_bm25_cache: dict | None = None
+
+
+def invalidate_bm25_cache() -> None:
+    """Clear the BM25 index (call after re-ingesting documents)."""
+    global _bm25_cache
+    _bm25_cache = None
+
+
+def _get_bm25_index() -> dict | None:
+    """
+    Build and cache a BM25Okapi index over all documents in ChromaDB.
+    Built once per process lifetime; call invalidate_bm25_cache() after re-ingestion.
+    Returns None if rank_bm25 is not installed or the collection is empty.
+    """
+    global _bm25_cache
+    if _bm25_cache is not None:
+        return _bm25_cache
+
+    try:
+        from rank_bm25 import BM25Okapi
+    except ImportError:
+        log.warning("[BM25] rank_bm25 not installed — BM25 disabled. Run: pip install rank_bm25")
+        return None
+
+    try:
+        from src.ingest import get_chroma_collection
+        _client, collection = get_chroma_collection()
+        result = collection.get(include=["documents", "metadatas"], limit=1_000_000)
+        docs = result.get("documents") or []
+        metas = result.get("metadatas") or [{}] * len(docs)
+    except Exception as e:
+        log.warning(f"[BM25] Failed to load documents from ChromaDB: {e}")
+        return None
+
+    if not docs:
+        return None
+
+    tokenized = [doc.lower().split() for doc in docs]
+    bm25 = BM25Okapi(tokenized)
+    _bm25_cache = {"bm25": bm25, "docs": docs, "metas": metas}
+    log.info(f"[BM25] Index built over {len(docs)} documents.")
+    return _bm25_cache
+
+
+def _bm25_retrieve(query: str, top_n: int = 40) -> list[tuple[str, dict]]:
+    """Return top_n chunks from the BM25 index as [(doc_text, metadata), ...] (best first)."""
+    idx = _get_bm25_index()
+    if not idx:
+        return []
+
+    tokens = query.lower().split()
+    scores = idx["bm25"].get_scores(tokens)
+    docs = idx["docs"]
+    metas = idx["metas"]
+
+    top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_n]
+    # Filter out zero-score hits (no keyword overlap at all)
+    return [(docs[i], metas[i] or {}) for i in top_indices if scores[i] > 0]
+
+
+def _rrf_merge(
+    bm25_hits: list[tuple[str, dict]],
+    vector_hits: list[tuple[str, dict]],
+    k: int = 60,
+) -> list[tuple[str, dict]]:
+    """
+    Reciprocal Rank Fusion of BM25 and vector search results.
+    Both lists are ranked best-first. Returns a merged, deduplicated list sorted by RRF score.
+    """
+    rrf_scores: dict[tuple, float] = {}
+    key_to_chunk: dict[tuple, tuple[str, dict]] = {}
+
+    for rank, (doc, meta) in enumerate(bm25_hits):
+        key = _chunk_dedupe_key(doc, meta)
+        rrf_scores[key] = rrf_scores.get(key, 0.0) + 1.0 / (k + rank + 1)
+        key_to_chunk[key] = (doc, meta)
+
+    for rank, (doc, meta) in enumerate(vector_hits):
+        key = _chunk_dedupe_key(doc, meta)
+        rrf_scores[key] = rrf_scores.get(key, 0.0) + 1.0 / (k + rank + 1)
+        if key not in key_to_chunk:
+            key_to_chunk[key] = (doc, meta)
+
+    sorted_keys = sorted(rrf_scores, key=lambda x: rrf_scores[x], reverse=True)
+    return [key_to_chunk[key] for key in sorted_keys]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Cohere reranker
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _cohere_rerank(query: str, chunks: list[dict], top_n: int) -> list[dict]:
+    """
+    Rerank chunks using Cohere rerank-multilingual-v3.0 (handles Swedish well).
+    Falls back to original order if COHERE_API_KEY is absent, cohere is not installed,
+    or the API call fails.
+    """
+    if not USE_RERANKER or not COHERE_API_KEY or not chunks:
+        return chunks[:top_n]
+
+    try:
+        import cohere
+    except ImportError:
+        log.warning("[Reranker] cohere not installed — reranking disabled. Run: pip install cohere")
+        return chunks[:top_n]
+
+    try:
+        co = cohere.Client(COHERE_API_KEY)
+        docs = [c["text"] for c in chunks]
+        results = co.rerank(
+            model="rerank-multilingual-v3.0",
+            query=query,
+            documents=docs,
+            top_n=min(top_n, len(docs)),
+        )
+        reranked = [chunks[r.index] for r in results.results]
+        log.info(f"[Reranker] Reranked {len(docs)} candidates → top {len(reranked)}.")
+        return reranked
+    except Exception as e:
+        log.warning(f"[Reranker] Cohere rerank failed: {e}. Falling back to original order.")
+        return chunks[:top_n]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Retriever: embed query, fetch top-k from ChromaDB (with metadata)
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -185,7 +317,7 @@ class ChromaRetrieverNode:
         log.info(
             f"[Retriever] Multi-query retrieval: {len(variants)} variant(s), top-{k} merged chunks..."
         )
-        # Hämta fler per variant så sammanslagning kan välja bäst unika träffar.
+        # Fetch more per variant so merging can select the best unique hits.
         per_query = min(max(k, 12), 40)
         merged_rows: list[tuple[float, str, dict]] = []
         for v in variants:
@@ -205,19 +337,38 @@ class ChromaRetrieverNode:
                     d = 0.0
                 merged_rows.append((d, doc or "", meta or {}))
 
+        # Sort by distance (ascending = more similar), deduplicate → ranked vector hits.
         merged_rows.sort(key=lambda x: x[0])
         seen_keys: set[tuple[str, str, int]] = set()
-        chunks: list[dict] = []
+        vector_hits: list[tuple[str, dict]] = []
         for dist, doc, meta in merged_rows:
             key = _chunk_dedupe_key(doc, meta)
-            if key in seen_keys:
-                continue
-            seen_keys.add(key)
-            chunks.append({"text": doc, "metadata": meta})
-            if len(chunks) >= k:
-                break
+            if key not in seen_keys:
+                seen_keys.add(key)
+                vector_hits.append((doc, meta))
 
-        log.info(f"[Retriever] Retrieved {len(chunks)} chunks (merged, deduplicated).")
+        # BM25 retrieval + Reciprocal Rank Fusion (if enabled).
+        if USE_BM25:
+            bm25_hits = _bm25_retrieve(query, top_n=40)
+            if bm25_hits:
+                merged_hits = _rrf_merge(bm25_hits, vector_hits, k=60)
+                log.info(
+                    f"[Retriever] RRF: {len(bm25_hits)} BM25 + {len(vector_hits)} vector → "
+                    f"{len(merged_hits)} candidates."
+                )
+            else:
+                merged_hits = vector_hits
+        else:
+            merged_hits = vector_hits
+
+        # Pass top RERANKER_CANDIDATES to the cross-encoder, then keep top-k.
+        candidates = [
+            {"text": doc, "metadata": meta}
+            for doc, meta in merged_hits[:RERANKER_CANDIDATES]
+        ]
+        chunks = _cohere_rerank(query, candidates, top_n=k)
+
+        log.info(f"[Retriever] Final: {len(chunks)} chunks (hybrid RRF + reranked).")
         return {"query": query, "chunks": chunks, "mode": mode}
 
 
