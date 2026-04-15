@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').trim()
+// In production, default to same-origin "/api" and let nginx proxy to backend.
 const RESOLVED_API_BASE = API_BASE || (import.meta.env.DEV ? 'http://localhost:8000' : '')
 
 const starterPrompts = ['Sammanfatta tillståndsläge', 'Påverkan på närboende', 'Buller och vibrationer']
@@ -106,11 +107,6 @@ function App() {
     if (!trimmed || loading) return
     setLoading(true)
     try {
-      if (!RESOLVED_API_BASE) {
-        throw new Error(
-          'API-konfiguration saknas i frontend (VITE_API_BASE_URL). Kontakta administratör.',
-        )
-      }
       const response = await fetch(`${RESOLVED_API_BASE}/api/ask`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
