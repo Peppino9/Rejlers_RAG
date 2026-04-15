@@ -12,6 +12,8 @@ if [[ ! -d chroma_db ]] || [[ -z "$(ls -A chroma_db 2>/dev/null)" ]]; then
 fi
 
 echo "Uploading chroma_db/ → Railway:/app/chroma_db (this may take a while) ..."
-railway ssh -- rm -rf /app/chroma_db && mkdir -p /app/chroma_db
-tar -cf - chroma_db | railway ssh -- tar -xf - -C /app
+# Railway CLI argument parsing can be strict; keep commands simple and shell-free.
+railway ssh mkdir -p /app/chroma_db
+# Stream only contents of local chroma_db/ into mounted /app/chroma_db.
+tar -cf - -C chroma_db . | railway ssh tar -xf - -C /app/chroma_db
 echo "Done. Restart the backend service on Railway, then test the app."
