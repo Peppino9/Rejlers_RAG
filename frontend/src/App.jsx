@@ -4,6 +4,21 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
 
 const starterPrompts = ['Sammanfatta tillståndsläge', 'Påverkan på närboende', 'Buller och vibrationer']
 
+function SendArrowIcon() {
+  return (
+    <svg className="send-arrow" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M5 12h14m-5-5 5 5-5 5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
 function metricLabel(key) {
   if (key === 'lix') return 'LIX'
   if (key === 'faithfulness') return 'RAGAS Trogenhet'
@@ -113,6 +128,7 @@ function App() {
     } catch (error) {
       setActive((prev) => ({
         ...prev,
+        question: trimmed,
         answer: `Förfrågan misslyckades: ${error.message}`,
       }))
     } finally {
@@ -129,15 +145,23 @@ function App() {
             ?
           </button>
           <div className="help-content" role="note">
-            Använd ALMA för att ställa frågor om projektunderlag, få sammanfattningar och hitta relevanta källor snabbt.
+            <p className="help-content-heading">Vad kan jag använda ALMA till?</p>
+            <p>
+              Använd ALMA för att ställa frågor om projektunderlag, få sammanfattningar och hitta källor snabbt.
+            </p>
+            <p>
+              <strong>Välj projekt</strong> du vill fokusera på (eller <em>Alla projekt</em>). Svaren bygger{' '}
+              <strong>endast på inmatade officiella dokument</strong> för valt projekt.{' '}
+              <strong>Ingen information hämtas från webben</strong> eller andra externa källor.
+            </p>
           </div>
         </div>
       </header>
 
       <section className="hero">
-        <p className="eyebrow">ALMA Assistent</p>
-        <h1>
-          Välkommen till <span className="brand-inline">ALMA</span>.
+        <p className="eyebrow">AI ASSISTENT</p>
+        <h1 className="hero-title">
+          Fråga <span className="brand-inline">ALMA</span>. Få svar.
         </h1>
         <p className="subhead">Modern intelligens för infrastrukturplanering och underbyggda beslut.</p>
       </section>
@@ -151,28 +175,39 @@ function App() {
             </label>
             <select id="projectSelect" value={project} onChange={(event) => setProject(event.target.value)}>
               <option value="alla-projekt">Alla projekt</option>
-              <option value="ostlanken">Ostlänken</option>
-              <option value="vastlanken">Västlänken</option>
+              <option value="lund-stambana">Lund Stambana</option>
             </select>
           </div>
-          <textarea
-            ref={textareaRef}
-            id="promptInput"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            onInput={(event) => {
-              event.currentTarget.style.height = 'auto'
-              event.currentTarget.style.height = `${Math.min(event.currentTarget.scrollHeight, 130)}px`
-            }}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault()
-                askQuestion(query)
-              }
-            }}
-            placeholder="Ställ en fråga..."
-            rows={1}
-          />
+          <div className="prompt-field">
+            <textarea
+              ref={textareaRef}
+              id="promptInput"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              onInput={(event) => {
+                event.currentTarget.style.height = 'auto'
+                event.currentTarget.style.height = `${Math.min(event.currentTarget.scrollHeight, 130)}px`
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault()
+                  askQuestion(query)
+                }
+              }}
+              placeholder="Ställ en fråga..."
+              rows={1}
+            />
+            <button
+              className="send-btn"
+              onClick={() => askQuestion(query)}
+              disabled={loading}
+              type="button"
+              aria-label={loading ? 'Laddar svar' : 'Skicka'}
+              title="Skicka"
+            >
+              {loading ? <span className="send-loading" aria-hidden="true" /> : <SendArrowIcon />}
+            </button>
+          </div>
           <div className="prompt-actions">
             {starterPrompts.map((prompt) => (
               <button key={prompt} className="nav-link shimmer-hover" onClick={() => askQuestion(prompt)} type="button">
@@ -180,31 +215,31 @@ function App() {
               </button>
             ))}
           </div>
-          <button
-            className={`send-btn ${query.trim() ? 'visible' : ''}`}
-            onClick={() => askQuestion(query)}
-            disabled={loading}
-            type="button"
-          >
-            {loading ? <span className="send-loading" aria-label="Laddar svar" /> : 'Skicka'}
-          </button>
           <div className={`answer-panel ${hasResponse ? 'visible' : ''}`}>
             <article className="response-card">
-              <h2 className="response-title">ALMA-svar</h2>
               {hasResponse ? (
                 <>
-                  <p className="response-copy unfurl">
-                    {active.answer.split(' ').map((word, index) => (
-                      <span key={`${word}-${index}`} style={{ animationDelay: `${index * 22}ms` }}>
-                        {word}&nbsp;
-                      </span>
-                    ))}
-                  </p>
+                  {active.question ? (
+                    <div className="response-question">
+                      <span className="response-question-label">Fråga</span>
+                      <p className="response-question-text">{active.question}</p>
+                    </div>
+                  ) : null}
+                  <div className="response-answer-block">
+                    <h2 className="response-title">ALMA:s Svar</h2>
+                    <p className="response-copy unfurl">
+                      {active.answer.split(' ').map((word, index) => (
+                        <span key={`${word}-${index}`} style={{ animationDelay: `${index * 22}ms` }}>
+                          {word}&nbsp;
+                        </span>
+                      ))}
+                    </p>
+                  </div>
                   <div className="citations">
                     {active.sources
                       ? active.sources.split(',').map((item) => (
                           <button key={item.trim()} className="citation shimmer-hover" type="button">
-                            <span className="diamond" aria-hidden="true" />
+                            <span className="citation-marker" aria-hidden="true" />
                             {item.trim()}
                           </button>
                         ))
@@ -215,7 +250,10 @@ function App() {
                   </div>
                 </>
               ) : (
-                <p className="response-placeholder">Svar visas här när du skickar en fråga.</p>
+                <div className="response-answer-block">
+                  <h2 className="response-title">ALMA:s Svar</h2>
+                  <p className="response-placeholder">Svar visas här när du skickar en fråga.</p>
+                </div>
               )}
             </article>
           </div>
@@ -239,9 +277,7 @@ function App() {
             </button>
           ))
         ) : (
-          <span className="history-empty">
-            <span aria-hidden="true">◇ </span>Inga tidigare frågor ännu.
-          </span>
+          <span className="history-empty">Inga tidigare frågor ännu.</span>
         )}
       </section>
     </div>
