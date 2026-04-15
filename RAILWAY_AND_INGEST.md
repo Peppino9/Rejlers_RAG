@@ -31,7 +31,7 @@ Run on **your Mac**, from the repo root (`Rejlers_RAG/`):
 | Frontend      | React + nginx | e.g. `…alma-frontend…`            |
 
 
-- **Frontend (Docker) service:** keep **`VITE_API_BASE_URL`** = backend base `https://…` (no path, no trailing slash). The **nginx** image substitutes it at **container start** into `nginx/templates/default.conf.template` and proxies `/api` to FastAPI. The **browser** only talks to your frontend origin (good for **mobile Safari**). Rebuild/redeploy the **frontend** image after changing it.
+- **Frontend (Docker) service:** nginx proxies `/api` to your FastAPI host. Set **`NGINX_BACKEND`** (or **`VITE_API_BASE_URL`**) on the **running** service to the API base `https://…` (no path, no trailing slash). Railway may not expose `VITE_*` at **runtime**; if deploy logs say the upstream is missing, add **`NGINX_BACKEND`** with the same URL. **`PORT`** is set by Railway; the template uses `listen ${PORT};` (not a fixed `8080`).
 - **Backend service:** **FRONTEND_ORIGIN** = frontend `https://…` (no trailing slash) so the API still accepts direct calls (e.g. tools) from that origin.
 
 ### Mobile “Load failed” (Railway)
