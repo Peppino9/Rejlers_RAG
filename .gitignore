@@ -11,8 +11,8 @@
 # Raw data files (too large for GitHub)
 data/
 
-# ChromaDB (uploaded separately to Railway volume)
-chroma_db/
+# ChromaDB (temporarily included for Railway local deploy)
+# chroma_db/
 
 # Python cache
 __pycache__/

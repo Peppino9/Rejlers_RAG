@@ -14,11 +14,29 @@ Run on **your Mac**, from the repo root (`Rejlers_RAG/`):
   ```
    Optional clean slate first:  
    `rm -rf chroma_db && mkdir -p chroma_db` then run ingest again.
-2. **Push `chroma_db/` to Railway**
-  Prereqs once: `brew install railway`, `railway login`, `railway link` (link the **backend** service).
-3. **Reload the API on Railway**
-  In the Railway dashboard: **Restart** the backend service.  
-   Use a **full redeploy** only if you also **changed code** and pushed it to GitHub.
+2. **Create archive**
+  ```bash
+   tar -cf /tmp/chroma_db.tar -C chroma_db .
+   ls -lh /tmp/chroma_db.tar
+  ```
+3. **Upload archive to Google Drive (or other public file host)**
+  - Set sharing to **Anyone with the link**.
+  - Keep the file id (example: `1jCxJIA-9H1jiw1Hzh1MxBQtofoCp6_di`).
+4. **Open Railway shell to backend and replace `/app/chroma_db`**
+  ```bash
+   railway ssh --project=<PROJECT_ID> --environment=<ENV_ID> --service=<BACKEND_SERVICE_ID>
+   mkdir -p /app/chroma_db
+   find /app/chroma_db -mindepth 1 -delete
+   python -m pip install --no-cache-dir gdown
+   python -m gdown "https://drive.google.com/uc?id=<FILE_ID>" -O /tmp/chroma_db.tar
+   ls -lh /tmp/chroma_db.tar
+   tar -xf /tmp/chroma_db.tar -C /app/chroma_db
+   ls -lah /app/chroma_db
+   exit
+  ```
+5. **Reload the API on Railway**
+  - In the Railway dashboard: **Restart** the backend service.
+  - Use a **full redeploy** only if you also changed code.
 
 ---
 
@@ -36,7 +54,7 @@ Run on **your Mac**, from the repo root (`Rejlers_RAG/`):
 
 ---
 
-## Persistent volume (recommended)
+## Persistent volume (recommended, strongly)
 
 Mount a Railway **volume** on `**/app/chroma_db`** so the index survives redeploys.  
 If you only push to the container filesystem with **no** volume, a new deploy can wipe the DB unless you push again.
@@ -83,5 +101,6 @@ That needs `**/app/data**` with PDFs on the server. For normal iteration, **inge
 
 ## Script location
 
-- `scripts/push_chroma_to_railway.sh` — uploads local `chroma_db/` to `/app/chroma_db` on the linked service.
+- `scripts/push_chroma_to_railway.sh` — helper script for direct CLI upload.
+- If Railway SSH stdin/tar piping hangs or fails, use the Google Drive + `gdown` flow above (this is the most reliable fallback).
 
