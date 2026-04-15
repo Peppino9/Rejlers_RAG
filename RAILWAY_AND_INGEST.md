@@ -31,14 +31,8 @@ Run on **your Mac**, from the repo root (`Rejlers_RAG/`):
 | Frontend      | React + nginx | e.g. `…alma-frontend…`            |
 
 
-- **Frontend (Docker) service:** nginx proxies `/api` to your FastAPI host. Set **`NGINX_BACKEND`** (or **`VITE_API_BASE_URL`**) on the **running** service to the API base `https://…` (no path, no trailing slash). Railway may not expose `VITE_*` at **runtime**; if deploy logs say the upstream is missing, add **`NGINX_BACKEND`** with the same URL. **`PORT`** is set by Railway; the template uses `listen ${PORT};` (not a fixed `8080`).
-- **Backend service:** **FRONTEND_ORIGIN** = frontend `https://…` (no trailing slash) so the API still accepts direct calls (e.g. tools) from that origin.
-
-### Mobile “Load failed” (Railway)
-
-- Prefer this **nginx `/api` proxy** (same-origin from the phone). Do not rely on baking the API URL only into JS unless you know the build received `VITE_API_BASE_URL`.
-- If you still call the API **cross-origin** from the browser, use **`https://…`** for the API URL (not `http`) and redeploy the frontend build that embeds it.
-- **`FRONTEND_ORIGIN`** on the API should match the frontend URL you open.
+- Frontend env: `**VITE_API_BASE_URL`** = backend `https://…` (exact name, rebuild frontend after changes).  
+- Backend env: `**FRONTEND_ORIGIN`** = frontend `https://…` (no trailing slash).
 
 ---
 
@@ -89,5 +83,5 @@ That needs `**/app/data**` with PDFs on the server. For normal iteration, **inge
 
 ## Script location
 
-- `scripts/push_chroma_to_railway.sh` - uploads local `chroma_db/` to `/app/chroma_db` on the linked service.
+- `scripts/push_chroma_to_railway.sh` — uploads local `chroma_db/` to `/app/chroma_db` on the linked service.
 

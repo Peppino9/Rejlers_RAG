@@ -79,7 +79,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  /* Above .hero (same row siblings both had z-index: 1; hero painted over the help panel) */
+  /* Above .hero (same row siblings both had z-index: 1 — hero painted over the help panel) */
   z-index: 50;
 }
 .brand-mark {

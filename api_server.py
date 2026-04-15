@@ -44,10 +44,10 @@ _allow_origins = sorted(set(_default_origins + _env_origins))
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_allow_origins,
-    # Local dev + Railway-hosted frontends (hostname shapes vary: *.up.railway.app, *.railway.app).
+    # Local dev + any Railway public HTTPS app (so the React site can call the API without CORS errors).
     allow_origin_regex=(
         r"https?://(localhost|127\.0\.0\.1)(:\d+)?"
-        r"|https://[\w.-]+\.railway\.app(?::\d+)?"
+        r"|https://[a-zA-Z0-9-]+\.up\.railway\.app"
     ),
     allow_credentials=True,
     allow_methods=["*"],
