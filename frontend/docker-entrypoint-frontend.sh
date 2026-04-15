@@ -1,5 +1,8 @@
 #!/bin/sh
 set -e
+# Newer nginx Docker images pass the whole container env to envsubst; that can break "$$uri" escapes.
+# Restrict substitution to the two vars we actually substitute in templates.
+export NGINX_ENVSUBST_FILTER='^(PORT|NGINX_BACKEND)$'
 # Railway injects PORT. VITE_* may only exist at build time; nginx needs a runtime upstream (NGINX_BACKEND).
 _b="${NGINX_BACKEND:-${VITE_API_BASE_URL:-}}"
 export NGINX_BACKEND="${_b%/}"
