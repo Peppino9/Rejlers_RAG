@@ -1,6 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
+// Dev: default to same-origin `/api` so Vite’s proxy can reach FastAPI (works from phone on LAN).
+// Prod: set VITE_API_BASE_URL at build time (Railway: full https URL to the API service).
+function normalizeApiBase() {
+  const raw = import.meta.env.VITE_API_BASE_URL?.trim().replace(/\/$/, '')
+  if (raw) {
+    // Railway (and browsers) serve the site on https. If VITE_API_BASE_URL was set to http://…,
+    // desktop can sometimes still work while Safari on iOS blocks mixed content → "Load failed".
+    if (
+      typeof window !== 'undefined' &&
+      window.location.protocol === 'https:' &&
+      raw.startsWith('http://') &&
+      !raw.startsWith('http://localhost') &&
+      !raw.startsWith('http://127.0.0.1')
+    ) {
+      return `https://${raw.slice('http://'.length)}`
+    }
+    return raw
+  }
+  if (import.meta.env.DEV) return ''
+  return 'http://localhost:8000'
+}
+
+const API_BASE = normalizeApiBase()
 
 const starterPrompts = ['Sammanfatta tillståndsläge', 'Påverkan på närboende', 'Buller och vibrationer']
 
@@ -126,10 +148,18 @@ function App() {
       setHistory((prev) => [entry, ...prev].slice(0, 30))
       setQuery('')
     } catch (error) {
+      const raw = error?.message ?? String(error)
+      const networkFail =
+        raw === 'Failed to fetch' ||
+        raw === 'Load failed' ||
+        raw.toLowerCase().includes('network')
+      const detail = networkFail
+        ? 'Nätverksfel — kunde inte nå API:et. Från mobil: öppna sidan med datorns IP (t.ex. http://192.168.1.x:5173), inte localhost.'
+        : raw
       setActive((prev) => ({
         ...prev,
         question: trimmed,
-        answer: `Förfrågan misslyckades: ${error.message}`,
+        answer: `Förfrågan misslyckades: ${detail}`,
       }))
     } finally {
       setLoading(false)

@@ -34,6 +34,12 @@ Run on **your Mac**, from the repo root (`Rejlers_RAG/`):
 - Frontend env: `**VITE_API_BASE_URL`** = backend `https://…` (exact name, rebuild frontend after changes).  
 - Backend env: `**FRONTEND_ORIGIN`** = frontend `https://…` (no trailing slash).
 
+### Mobile shows “Load failed” / works on desktop (Railway)
+
+- Use **`https://…`** for `VITE_API_BASE_URL`, not `http://…`. The Railway frontend is served over **HTTPS**; Safari on iOS blocks **mixed content** (https page → http API) and the fetch fails as **Load failed**, while some desktop setups can look fine.
+- After changing env vars, **redeploy the frontend** so Vite bakes in the new value.
+- Ensure **`FRONTEND_ORIGIN`** matches the **exact** frontend URL you open (scheme + host, no path, no trailing slash). If it is wrong, add the real URL or rely on the API’s Railway CORS regex and redeploy the backend.
+
 ---
 
 ## Persistent volume (recommended)
