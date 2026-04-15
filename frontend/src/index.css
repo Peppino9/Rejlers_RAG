@@ -131,6 +131,7 @@ nav { display: flex; gap: 0.45rem; }
   border: 1px solid rgba(183, 110, 121, 0.28);
   background-color: #ffffff;
   background-clip: padding-box;
+  font-family: "Inter", system-ui, sans-serif;
   color: rgba(26, 26, 26, 0.86);
   font-size: 0.82rem;
   line-height: 1.45;
@@ -150,8 +151,9 @@ nav { display: flex; gap: 0.45rem; }
   margin-bottom: 0;
 }
 .help-content-heading {
-  font-family: "Tenor Sans", sans-serif;
+  font-family: inherit;
   font-size: 0.8rem;
+  font-weight: 600;
   letter-spacing: 0.04em;
   color: rgba(183, 110, 121, 0.95);
   margin-bottom: 0.4rem;
@@ -548,25 +550,97 @@ textarea:focus-visible,
   outline-offset: 2px;
 }
 @media (max-width: 840px) {
-  .scene { padding: 0.9rem; }
-  nav { display: none; }
-  .hero {
-    margin-top: 1.6rem;
-    padding: 0.65rem 0.25rem 0.55rem;
+  .scene {
+    padding: 1rem 1rem 1.35rem;
+    row-gap: 0.45rem;
   }
-  .hero .hero-title { font-size: clamp(1.55rem, 7vw, 2.35rem); }
-  .subhead {
+  nav {
+    display: none;
+  }
+  .hero {
+    margin-top: 2rem;
+    padding: 0.75rem 0.35rem 1.35rem;
+  }
+  .hero .hero-title {
+    font-size: clamp(1.55rem, 7vw, 2.35rem);
+  }
+  .hero .subhead {
     font-size: 0.95rem;
+    margin-top: 1.05rem;
   }
   .response-answer-block .response-title {
     font-size: 0.76rem;
   }
-  .glass-input { padding: 0.48rem 0.62rem; border-radius: 20px; }
-  .answer-panel { padding-top: 0.58rem; }
-  .response-card { padding: 0.82rem; }
-  .prompt-actions { gap: 0.35rem; }
-  .history-section { margin-top: 0.5rem; }
-  .history-header .nav-link { padding: 0.3rem 0.55rem; font-size: 0.82rem; }
+  .horizon-console {
+    padding: 1.25rem 0 0.5rem;
+  }
+  .horizon-console .section-title {
+    margin-bottom: 0.85rem;
+  }
+  .glass-input {
+    padding: 1rem 0.9rem 1.05rem;
+    gap: 0.85rem;
+    border-radius: 22px;
+  }
+  .project-picker {
+    padding: 0.28rem 0.55rem 0.28rem 0.65rem;
+  }
+  .prompt-field {
+    border-radius: 16px;
+  }
+  #promptInput {
+    min-height: 4rem;
+    padding: 0.75rem 3.85rem 3.65rem 0.85rem;
+    font-size: 1rem;
+  }
+  .prompt-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.62rem;
+  }
+  .prompt-actions .nav-link {
+    text-align: center;
+    padding: 0.52rem 0.85rem;
+    font-size: 0.9rem;
+  }
+  .answer-panel {
+    margin-top: 0.65rem;
+    padding-top: 1rem;
+  }
+  .response-card {
+    padding: 1.05rem 1rem 1rem;
+  }
+  .response-question {
+    padding-bottom: 1.05rem;
+  }
+  .response-question + .response-answer-block {
+    margin-top: 1.05rem;
+  }
+  .citations {
+    margin-top: 1.05rem;
+    padding-top: 1rem;
+    gap: 0.5rem;
+  }
+  .history-section {
+    margin-top: 0.85rem;
+  }
+  .history-strip {
+    margin-top: 1.1rem;
+    gap: 0.55rem;
+  }
+  .history-header {
+    margin-bottom: 0.25rem;
+  }
+  .history-header .nav-link {
+    padding: 0.38rem 0.65rem;
+    font-size: 0.82rem;
+  }
+  .history-empty {
+    margin-top: 0.35rem;
+    display: block;
+    text-align: center;
+    line-height: 1.5;
+  }
 }
 @media (hover: none), (pointer: coarse), (prefers-reduced-motion: reduce) {
   .scene::before,
