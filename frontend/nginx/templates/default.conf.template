@@ -1,0 +1,18 @@
+server {
+    listen 8080;
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Browser calls https://<frontend>/api/... ; nginx forwards to FastAPI (avoids cross-origin + Safari quirks).
+    location /api/ {
+        proxy_http_version 1.1;
+        proxy_ssl_server_name on;
+        proxy_pass ${VITE_API_BASE_URL}/api/;
+    }
+
+    location / {
+        try_files $$uri $$uri/ /index.html;
+    }
+}

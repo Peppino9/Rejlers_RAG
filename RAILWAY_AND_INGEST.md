@@ -31,14 +31,14 @@ Run on **your Mac**, from the repo root (`Rejlers_RAG/`):
 | Frontend      | React + nginx | e.g. `…alma-frontend…`            |
 
 
-- Frontend env: `**VITE_API_BASE_URL`** = backend `https://…` (exact name, rebuild frontend after changes).  
-- Backend env: `**FRONTEND_ORIGIN`** = frontend `https://…` (no trailing slash).
+- **Frontend (Docker) service:** keep **`VITE_API_BASE_URL`** = backend base `https://…` (no path, no trailing slash). The **nginx** image substitutes it at **container start** into `nginx/templates/default.conf.template` and proxies `/api` to FastAPI. The **browser** only talks to your frontend origin (good for **mobile Safari**). Rebuild/redeploy the **frontend** image after changing it.
+- **Backend service:** **FRONTEND_ORIGIN** = frontend `https://…` (no trailing slash) so the API still accepts direct calls (e.g. tools) from that origin.
 
-### Mobile shows “Load failed” / works on desktop (Railway)
+### Mobile “Load failed” (Railway)
 
-- Use **`https://…`** for `VITE_API_BASE_URL`, not `http://…`. The Railway frontend is served over **HTTPS**; Safari on iOS blocks **mixed content** (https page → http API) and the fetch fails as **Load failed**, while some desktop setups can look fine.
-- After changing env vars, **redeploy the frontend** so Vite bakes in the new value.
-- Ensure **`FRONTEND_ORIGIN`** matches the **exact** frontend URL you open (scheme + host, no path, no trailing slash). If it is wrong, add the real URL or rely on the API’s Railway CORS regex and redeploy the backend.
+- Prefer this **nginx `/api` proxy** (same-origin from the phone). Do not rely on baking the API URL only into JS unless you know the build received `VITE_API_BASE_URL`.
+- If you still call the API **cross-origin** from the browser, use **`https://…`** for the API URL (not `http`) and redeploy the frontend build that embeds it.
+- **`FRONTEND_ORIGIN`** on the API should match the frontend URL you open.
 
 ---
 
@@ -89,5 +89,5 @@ That needs `**/app/data**` with PDFs on the server. For normal iteration, **inge
 
 ## Script location
 
-- `scripts/push_chroma_to_railway.sh` — uploads local `chroma_db/` to `/app/chroma_db` on the linked service.
+- `scripts/push_chroma_to_railway.sh` - uploads local `chroma_db/` to `/app/chroma_db` on the linked service.
 

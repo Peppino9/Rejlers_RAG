@@ -9,7 +9,7 @@ export default defineConfig({
     host: true,
     proxy: {
       // Browser calls /api/... on the Vite host; Vite forwards to FastAPI on this machine.
-      // Fixes "Load failed" on mobile when VITE_API_BASE_URL was localhost (phone ≠ your PC).
+      // Fixes "Load failed" on mobile when VITE_API_BASE_URL was localhost (phone is not your PC).
       '/api': {
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,

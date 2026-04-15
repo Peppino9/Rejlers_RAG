@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 // Dev: default to same-origin `/api` so Vite’s proxy can reach FastAPI (works from phone on LAN).
 // Prod: set VITE_API_BASE_URL at build time (Railway: full https URL to the API service).
 function normalizeApiBase() {
-  const raw = import.meta.env.VITE_API_BASE_URL?.trim().replace(/\/$/, '')
+  const raw = (import.meta.env.VITE_API_BASE_URL ?? '').trim().replace(/\/$/, '')
   if (raw) {
     // Railway (and browsers) serve the site on https. If VITE_API_BASE_URL was set to http://…,
     // desktop can sometimes still work while Safari on iOS blocks mixed content → "Load failed".
@@ -19,7 +19,9 @@ function normalizeApiBase() {
     return raw
   }
   if (import.meta.env.DEV) return ''
-  return 'http://localhost:8000'
+  // Production static build: use same-origin `/api` unless VITE_API_BASE_URL was set at build time
+  // (Docker + nginx proxy bakes empty; `vite build` with env set still bakes a full URL).
+  return ''
 }
 
 const API_BASE = normalizeApiBase()
@@ -153,9 +155,17 @@ function App() {
         raw === 'Failed to fetch' ||
         raw === 'Load failed' ||
         raw.toLowerCase().includes('network')
-      const detail = networkFail
-        ? 'Nätverksfel — kunde inte nå API:et. Från mobil: öppna sidan med datorns IP (t.ex. http://192.168.1.x:5173), inte localhost.'
-        : raw
+      let detail = raw
+      if (networkFail) {
+        // LAN/localhost hint only for local Vite + proxy; wrong and confusing on Railway/production.
+        if (import.meta.env.DEV && !API_BASE) {
+          detail =
+            'Nätverksfel - kunde inte nå API:et. Från mobil i lokalt läge: öppna sidan med datorns IP (t.ex. http://192.168.1.x:5173), inte localhost, och kör backend på port 8000.'
+        } else {
+          detail =
+            'Nätverksfel - kunde inte nå API:et. Kontrollera uppkoppling och försök igen om en stund.'
+        }
+      }
       setActive((prev) => ({
         ...prev,
         question: trimmed,
