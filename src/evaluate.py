@@ -37,9 +37,10 @@ from config import (
     RAGAS_JUDGE_MAX_CHUNKS,
     RAGAS_JUDGE_MAX_CONTEXT_CHARS,
     RAGAS_JUDGE_LLM_MAX_TOKENS,
+    RAGAS_RELEVANCY_RUNS,
+    RAGAS_EVAL_TIMEOUT_SECONDS,
 )
 
-RAGAS_RELEVANCY_RUNS: int = 3
 _LEXICAL_STOPWORDS: frozenset[str] = frozenset(
     {
         "och", "att", "som", "för", "med", "till", "inte", "kan", "har", "den", "det",
@@ -255,7 +256,7 @@ def ragas_evaluate(
             metrics=[faithfulness, answer_relevancy],
             llm=llm,
             embeddings=embeddings,
-            run_config=RunConfig(timeout=300, max_retries=6),
+            run_config=RunConfig(timeout=RAGAS_EVAL_TIMEOUT_SECONDS, max_retries=2),
             show_progress=False,
             raise_exceptions=False,
         )

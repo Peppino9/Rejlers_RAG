@@ -74,6 +74,10 @@ RAGAS_JUDGE_MAX_CHUNKS: int = 8
 RAGAS_JUDGE_MAX_CHUNK_CHARS: int = 3_200
 RAGAS_JUDGE_MAX_CONTEXT_CHARS: int = 22_000
 RAGAS_JUDGE_LLM_MAX_TOKENS: int = 8_192
+# Keep API latency low in production; 1 run avoids nginx 504s.
+RAGAS_RELEVANCY_RUNS: int = 1
+# Per-run timeout for RAGAS evaluation.
+RAGAS_EVAL_TIMEOUT_SECONDS: int = 90
 
 # ── Prompts (A/B for thesis: Expert vs Citizen/LIX) ────────────────────────
 PROMPT_A_EXPERT: str = (
