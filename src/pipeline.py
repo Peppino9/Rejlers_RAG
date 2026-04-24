@@ -402,6 +402,19 @@ def _format_sources(chunks: list[dict]) -> str:
     return "Källor: " + ", ".join(parts)
 
 
+def _strip_markdown_headings(text: str) -> str:
+    """
+    Remove markdown heading markers so expert answers stay plain text.
+    Example: "### Rubrik" -> "Rubrik".
+    """
+    if not text:
+        return text
+    cleaned_lines = []
+    for line in text.splitlines():
+        cleaned_lines.append(re.sub(r"^\s{0,3}#{1,6}\s+", "", line))
+    return "\n".join(cleaned_lines)
+
+
 def _build_context_block(
     chunks: list[dict],
     *,
@@ -516,6 +529,7 @@ class GeneratorNode:
             max_tokens=GENERATOR_MAX_TOKENS,
         )
         answer = (response.choices[0].message.content or "").strip()
+        answer = _strip_markdown_headings(answer)
 
         # Ensure source line is present; if model omitted it, append ourselves
         sources_line = _format_sources(selected_chunks)
