@@ -36,6 +36,7 @@ from config import (
     PROMPT_MAX_CONTEXT_CHARS,
     PROMPT_MAX_CHUNK_CHARS,
     COHERE_API_KEY,
+    COHERE_RERANK_MODEL,
     USE_RERANKER,
     RERANKER_CANDIDATES,
     USE_BM25,
@@ -241,7 +242,7 @@ def _rrf_merge(
 
 def _cohere_rerank(query: str, chunks: list[dict], top_n: int) -> list[dict]:
     """
-    Rerank chunks using Cohere rerank-multilingual-v3.0 (handles Swedish well).
+    Rerank chunks using configurable Cohere rerank model.
     Falls back to original order if COHERE_API_KEY is absent, cohere is not installed,
     or the API call fails.
     """
@@ -258,7 +259,7 @@ def _cohere_rerank(query: str, chunks: list[dict], top_n: int) -> list[dict]:
         co = cohere.Client(COHERE_API_KEY)
         docs = [c["text"] for c in chunks]
         results = co.rerank(
-            model="rerank-multilingual-v3.0",
+            model=COHERE_RERANK_MODEL,
             query=query,
             documents=docs,
             top_n=min(top_n, len(docs)),

@@ -54,9 +54,11 @@ TOP_K: int = 10
 USE_BM25: bool = True
 
 # ── Reranker (Cohere cross-encoder) ─────────────────────────────────────────
-# USE_RERANKER: apply Cohere rerank-multilingual-v3.0 after retrieval.
+# USE_RERANKER: apply Cohere rerank after retrieval.
 # Requires COHERE_API_KEY. Gracefully disabled if key is absent or cohere not installed.
 USE_RERANKER: bool = True
+# Cohere reranker model (upgrade target: v4).
+COHERE_RERANK_MODEL: str = "rerank-v4.0"
 # How many merged candidates to pass into the reranker before selecting top-k.
 RERANKER_CANDIDATES: int = 25
 

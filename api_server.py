@@ -72,7 +72,7 @@ def health() -> dict[str, str]:
 @app.post("/api/ask", response_model=AskResponse)
 def ask(payload: AskRequest) -> AskResponse:
     # Import here so /health can respond while heavy deps load on first question.
-    from src.evaluate import lix_score, ragas_evaluate
+    from src.evaluate import lix_score, ragas_evaluate_stable
     from src.pipeline import run_rag
 
     question = payload.question.strip()
@@ -92,15 +92,33 @@ def ask(payload: AskRequest) -> AskResponse:
     metrics: dict[str, float | None] = {
         "lix": float(lix_score(answer)),
         "faithfulness": None,
+        "faithfulness_std": None,
         "answer_relevancy": None,
+        "answer_relevancy_std": None,
+        "answer_relevancy_runs": None,
+        "lexical_relevance": None,
     }
     try:
-        ragas = ragas_evaluate(question, answer, chunk_texts)
+        ragas = ragas_evaluate_stable(question, answer, chunk_texts)
         faithfulness = ragas.get("faithfulness")
+        faithfulness_std = ragas.get("faithfulness_std")
         answer_relevancy = ragas.get("answer_relevancy")
+        answer_relevancy_std = ragas.get("answer_relevancy_std")
+        answer_relevancy_runs = ragas.get("answer_relevancy_runs")
+        lexical_relevance = ragas.get("lexical_relevance")
         metrics["faithfulness"] = float(faithfulness) if faithfulness is not None else None
+        metrics["faithfulness_std"] = float(faithfulness_std) if faithfulness_std is not None else None
         metrics["answer_relevancy"] = (
             float(answer_relevancy) if answer_relevancy is not None else None
+        )
+        metrics["answer_relevancy_std"] = (
+            float(answer_relevancy_std) if answer_relevancy_std is not None else None
+        )
+        metrics["answer_relevancy_runs"] = (
+            float(answer_relevancy_runs) if answer_relevancy_runs is not None else None
+        )
+        metrics["lexical_relevance"] = (
+            float(lexical_relevance) if lexical_relevance is not None else None
         )
     except Exception:
         # If Ragas models fail to load or timeout, still return answer + LIX.

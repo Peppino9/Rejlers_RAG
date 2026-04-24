@@ -39,6 +39,15 @@ from config import (
     RAGAS_JUDGE_LLM_MAX_TOKENS,
 )
 
+RAGAS_RELEVANCY_RUNS: int = 3
+_LEXICAL_STOPWORDS: frozenset[str] = frozenset(
+    {
+        "och", "att", "som", "för", "med", "till", "inte", "kan", "har", "den", "det",
+        "detta", "dessa", "är", "var", "blir", "från", "vid", "per", "inom",
+        "the", "and", "for", "with", "that", "this", "from", "are", "was",
+    }
+)
+
 # ─────────────────────────────────────────────────────────────────────────────
 # LIX (Läsbarhetsindex) for Swedish
 # ─────────────────────────────────────────────────────────────────────────────
@@ -137,21 +146,52 @@ def _ragas_llm_and_embeddings():
     return llm, embeddings
 
 
-def _safe_metric_float(value: object) -> float:
+def _safe_metric_float(value: object) -> float | None:
     try:
         x = float(value)
     except (TypeError, ValueError):
-        return 0.0
+        return None
     if math.isnan(x):
-        return 0.0
+        return None
     return x
+
+
+def _tokens_for_lexical_relevance(text: str) -> set[str]:
+    words = re.findall(r"[A-Za-zÅÄÖåäö0-9\-]{3,}", (text or "").lower())
+    return {w for w in words if w not in _LEXICAL_STOPWORDS}
+
+
+def lexical_relevance_score(question: str, answer: str) -> float | None:
+    """
+    Lightweight lexical fallback: fraction of question keywords seen in answer.
+    Returns None if there are no usable question keywords.
+    """
+    q_tokens = _tokens_for_lexical_relevance(question)
+    if not q_tokens:
+        return None
+    a_tokens = _tokens_for_lexical_relevance(answer)
+    if not a_tokens:
+        return 0.0
+    overlap = len(q_tokens & a_tokens) / len(q_tokens)
+    return round(max(0.0, min(1.0, overlap)), 3)
+
+
+def _mean_and_std(values: List[float | None]) -> tuple[float | None, float | None]:
+    usable = [v for v in values if v is not None]
+    if not usable:
+        return None, None
+    mean = sum(usable) / len(usable)
+    if len(usable) == 1:
+        return mean, 0.0
+    variance = sum((v - mean) ** 2 for v in usable) / len(usable)
+    return mean, math.sqrt(variance)
 
 
 def ragas_evaluate(
     question: str,
     answer: str,
     contexts: List[List[str]] | List[str],
-) -> dict[str, float]:
+) -> dict[str, float | None]:
     """
     Compute Ragas Faithfulness and Answer Relevance for one Q&A pair.
 
@@ -168,6 +208,7 @@ def ragas_evaluate(
     Returns
     -------
     dict with keys "faithfulness", "answer_relevancy", and optionally "ragas_result".
+    Metric values are None when the metric could not be computed.
     """
     try:
         from datasets import Dataset
@@ -180,7 +221,7 @@ def ragas_evaluate(
         ) from e
 
     if not contexts:
-        return {"faithfulness": 0.0, "answer_relevancy": 0.0}
+        return {"faithfulness": None, "answer_relevancy": None}
     if isinstance(contexts[0], str):
         flat: List[str] = contexts  # type: ignore[assignment]
     else:
@@ -193,7 +234,7 @@ def ragas_evaluate(
     contexts_judge = _shrink_contexts_for_ragas(flat)
 
     if not answer_judge:
-        return {"faithfulness": 0.0, "answer_relevancy": 0.0}
+        return {"faithfulness": None, "answer_relevancy": None}
 
     data = {
         "question": [question],
@@ -206,7 +247,7 @@ def ragas_evaluate(
         llm, embeddings = _ragas_llm_and_embeddings()
     except Exception as e:
         log.warning("Ragas LLM/embeddings init failed: %s", e)
-        return {"faithfulness": 0.0, "answer_relevancy": 0.0}
+        return {"faithfulness": None, "answer_relevancy": None}
 
     try:
         result = evaluate(
@@ -220,17 +261,67 @@ def ragas_evaluate(
         )
     except Exception as e:
         log.warning("Ragas evaluate failed: %s", e)
-        return {"faithfulness": 0.0, "answer_relevancy": 0.0}
+        return {"faithfulness": None, "answer_relevancy": None}
 
     df = result.to_pandas()
     if df.empty:
-        return {"faithfulness": 0.0, "answer_relevancy": 0.0, "ragas_result": result}
+        log.warning("Ragas returned empty dataframe for question: %s", question[:200])
+        return {"faithfulness": None, "answer_relevancy": None, "ragas_result": result}
     row = df.iloc[0]
     answer_rel = row.get("answer_relevancy", row.get("answer_relevance", 0.0))
+    faithfulness_value = _safe_metric_float(row.get("faithfulness", 0.0))
+    answer_relevancy_value = _safe_metric_float(answer_rel)
+    if faithfulness_value is None or answer_relevancy_value is None:
+        log.warning(
+            "Ragas metric missing/NaN (faithfulness=%r, answer_relevancy=%r). "
+            "question_len=%d answer_len=%d contexts=%d",
+            row.get("faithfulness", None),
+            answer_rel,
+            len(question or ""),
+            len(answer_judge),
+            len(contexts_judge),
+        )
     return {
-        "faithfulness": _safe_metric_float(row.get("faithfulness", 0.0)),
-        "answer_relevancy": _safe_metric_float(answer_rel),
+        "faithfulness": faithfulness_value,
+        "answer_relevancy": answer_relevancy_value,
         "ragas_result": result,
+    }
+
+
+def ragas_evaluate_stable(
+    question: str,
+    answer: str,
+    contexts: List[List[str]] | List[str],
+    runs: int = RAGAS_RELEVANCY_RUNS,
+) -> dict[str, float | None]:
+    """
+    Run RAGAS multiple times and aggregate to reduce judge variance.
+    """
+    n_runs = max(1, int(runs))
+    faithfulness_runs: List[float | None] = []
+    relevancy_runs: List[float | None] = []
+    last_result: object | None = None
+
+    for _ in range(n_runs):
+        out = ragas_evaluate(question, answer, contexts)
+        faithfulness_runs.append(out.get("faithfulness"))  # type: ignore[arg-type]
+        relevancy_runs.append(out.get("answer_relevancy"))  # type: ignore[arg-type]
+        if "ragas_result" in out:
+            last_result = out["ragas_result"]
+
+    faithfulness_mean, faithfulness_std = _mean_and_std(faithfulness_runs)
+    answer_relevancy_mean, answer_relevancy_std = _mean_and_std(relevancy_runs)
+    lexical = lexical_relevance_score(question, answer)
+    successful_runs = float(sum(1 for v in relevancy_runs if v is not None))
+
+    return {
+        "faithfulness": faithfulness_mean,
+        "faithfulness_std": faithfulness_std,
+        "answer_relevancy": answer_relevancy_mean,
+        "answer_relevancy_std": answer_relevancy_std,
+        "answer_relevancy_runs": successful_runs,
+        "lexical_relevance": lexical,
+        "ragas_result": last_result,  # optional debug object
     }
 
 
@@ -238,7 +329,7 @@ def compute_metrics(
     question: str,
     answer: str,
     contexts: List[str],
-) -> dict[str, float]:
+) -> dict[str, float | None]:
     """
     One-shot metrics for the Streamlit app: LIX + Ragas Faithfulness + Answer Relevance.
 
@@ -254,11 +345,15 @@ def compute_metrics(
     Returns
     -------
     dict with "lix", "faithfulness", "answer_relevancy".
+    RAGAS values may be None if the metric computation fails.
     """
     lix = lix_score(answer)
-    ragas_out = ragas_evaluate(question, answer, [contexts])
+    ragas_out = ragas_evaluate_stable(question, answer, [contexts])
     return {
         "lix": lix,
         "faithfulness": ragas_out["faithfulness"],
         "answer_relevancy": ragas_out["answer_relevancy"],
+        "answer_relevancy_std": ragas_out["answer_relevancy_std"],
+        "answer_relevancy_runs": ragas_out["answer_relevancy_runs"],
+        "lexical_relevance": ragas_out["lexical_relevance"],
     }

@@ -24,7 +24,11 @@ function SendArrowIcon() {
 function metricLabel(key) {
   if (key === 'lix') return 'LIX'
   if (key === 'faithfulness') return 'RAGAS Trogenhet'
+  if (key === 'faithfulness_std') return 'RAGAS Trogenhet (std)'
   if (key === 'answer_relevancy') return 'RAGAS Relevans'
+  if (key === 'answer_relevancy_std') return 'RAGAS Relevans (std)'
+  if (key === 'answer_relevancy_runs') return 'RAGAS Relevans (antal körningar)'
+  if (key === 'lexical_relevance') return 'Lexical Relevans'
   return key
 }
 
@@ -110,7 +114,7 @@ function App() {
       const response = await fetch(`${RESOLVED_API_BASE}/api/ask`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: trimmed, mode: 'citizen', project }),
+        body: JSON.stringify({ question: trimmed, mode: 'expert', project }),
       })
       if (!response.ok) {
         const detail = await response.text()
