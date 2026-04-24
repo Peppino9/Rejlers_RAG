@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').trim()
 // In production, default to same-origin "/api" and let nginx proxy to backend.
 const RESOLVED_API_BASE = API_BASE || (import.meta.env.DEV ? 'http://localhost:8000' : '')
+const DISPLAY_METRIC_KEYS = ['lix', 'faithfulness', 'answer_relevancy']
 
 const starterPrompts = ['Sammanfatta tillståndsläge', 'Påverkan på närboende', 'Buller och vibrationer']
 
@@ -56,11 +57,14 @@ function App() {
 
   const metricPills = useMemo(
     () =>
-      Object.entries(metrics).map(([k, v]) => (
-        <div key={k} className="metric-pill">
-          {metricLabel(k)}: {v === null || v === undefined ? '--' : Number(v).toFixed(k === 'lix' ? 2 : 3)}
-        </div>
-      )),
+      DISPLAY_METRIC_KEYS.map((k) => {
+        const v = metrics[k]
+        return (
+          <div key={k} className="metric-pill">
+            {metricLabel(k)}: {v === null || v === undefined ? '--' : Number(v).toFixed(k === 'lix' ? 2 : 3)}
+          </div>
+        )
+      }),
     [metrics],
   )
 

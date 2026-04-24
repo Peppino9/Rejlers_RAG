@@ -27,6 +27,7 @@ from config import (
     OPENAI_API_KEY,
     OPENAI_EMBEDDING_MODEL,
     LLM_MODEL,
+    GENERATOR_MAX_TOKENS,
     CHROMA_DB_PATH,
     COLLECTION_NAME,
     TOP_K,
@@ -512,6 +513,7 @@ class GeneratorNode:
                 {"role": "user", "content": user_content},
             ],
             temperature=0.2,
+            max_tokens=GENERATOR_MAX_TOKENS,
         )
         answer = (response.choices[0].message.content or "").strip()
 

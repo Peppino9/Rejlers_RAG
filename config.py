@@ -30,6 +30,8 @@ OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
 
 # ── LLM (strict: gpt-4o-mini for generation & Ragas judge) ───────────────────
 LLM_MODEL: str = "gpt-4o-mini"
+# Allow more detailed expert answers.
+GENERATOR_MAX_TOKENS: int = 1_800
 
 # ── ChromaDB ─────────────────────────────────────────────────────────────────
 # Always under project root (not cwd-relative) so API/runtime sees the same DB
@@ -82,6 +84,8 @@ RAGAS_EVAL_TIMEOUT_SECONDS: int = 90
 # ── Prompts (A/B for thesis: Expert vs Citizen/LIX) ────────────────────────
 PROMPT_A_EXPERT: str = (
     "Du är en senior infrastrukturkonsult. Svara på svenska, sakligt och professionellt. "
+    "Ge ett utförligt och välstrukturerat svar med tydlig kontext, delrubriknivå i löptext, "
+    "och konkreta förklaringar för varje relevant del av frågan. "
     "Bygg svaret enbart på det underlag som bifogas i användarmeddelandet (utdrag ur dokument). "
     "Om frågan efterfrågar plats- eller fastighetsspecifika siffror men underlaget bara ger "
     "allmän metodik, definitioner, kvalitativa bedömningar eller områdesbeskrivning: redovisa "
